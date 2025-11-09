@@ -10,33 +10,22 @@
 
 <style>
 html, body {margin:0; padding:0; height:100%; font-family:'Inter', sans-serif; background:#1e1e1e; color:#fff;}
-.app {display:grid; grid-template-columns:80px 220px 240px 1fr; height:100vh;}
-.sidebar, .channels, .users, .chat {backdrop-filter:blur(20px); background: rgba(255,255,255,0.05); border-right:1px solid rgba(255,255,255,0.1);}
 
-/* Верхние светофоры (как в MacOS) */
-.window-controls {
-  display:flex;
-  gap:8px;
-  padding:8px;
-  margin-bottom:12px;
-}
-.control {width:14px; height:14px; border-radius:50%; display:inline-block;}
-.control.red {background:#ff5f57;}
-.control.yellow {background:#ffbd2e;}
-.control.green {background:#28c840;}
+/* App layout */
+.app {display:grid; grid-template-columns:80px 220px 220px 1fr; height:100vh;}
 
-/* Sidebar */
-.sidebar {display:flex; flex-direction:column; align-items:center; padding:16px;}
+/* Sidebar / Servers */
+.sidebar {display:flex; flex-direction:column; align-items:center; padding:16px; backdrop-filter:blur(20px); background: rgba(255,255,255,0.05); border-right:1px solid rgba(255,255,255,0.1);}
 .server-icon {width:50px;height:50px;margin:8px 0;border-radius:16px; background: rgba(255,255,255,0.1); display:flex;align-items:center;justify-content:center; cursor:pointer; transition:0.2s;}
 .server-icon:hover {background: rgba(255,255,255,0.25); transform: scale(1.05);}
 
-/* Channels и пользователи */
-.channels, .users {padding:12px; display:flex; flex-direction:column; overflow-y:auto;}
+/* Channels & Users */
+.channels, .users {padding:12px; display:flex; flex-direction:column; overflow-y:auto; backdrop-filter:blur(20px); background: rgba(255,255,255,0.05); border-right:1px solid rgba(255,255,255,0.1);}
 .channel, .user {padding:8px 12px; border-radius:8px; margin-bottom:4px; cursor:pointer; transition:0.2s;}
 .channel.active, .channel:hover, .user:hover {background: rgba(255,255,255,0.15);}
 
 /* Chat */
-.chat {display:flex; flex-direction:column;}
+.chat {display:flex; flex-direction:column; backdrop-filter:blur(20px); background: rgba(255,255,255,0.05);}
 .messages {flex:1; padding:16px; overflow-y:auto;}
 .message {margin-bottom:12px;}
 .author {font-weight:600; margin-right:6px;}
@@ -45,29 +34,36 @@ html, body {margin:0; padding:0; height:100%; font-family:'Inter', sans-serif; b
 .composer button {margin-left:8px; padding:10px 16px; border-radius:8px; border:none; background: rgba(255,255,255,0.2); cursor:pointer;}
 .composer button:hover {background: rgba(255,255,255,0.4);}
 
-/* Модальное окно авторизации */
-#authModal {position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:10;}
-#authModal .modal-content {background: rgba(30,30,30,0.95); padding:20px; border-radius:12px; width:320px; display:flex; flex-direction:column;}
-#authModal input {margin-bottom:12px; padding:10px; border-radius:8px; border:none; outline:none;}
-#authModal button {padding:10px; border-radius:8px; border:none; cursor:pointer; background: rgba(255,255,255,0.2); color:white; transition:0.2s;}
+/* Window controls (MacOS) */
+.window-controls {display:flex; gap:8px; padding:8px; margin-bottom:12px;}
+.control {width:14px; height:14px; border-radius:50%; display:inline-block;}
+.control.red {background:#ff5f57;}
+.control.yellow {background:#ffbd2e;}
+.control.green {background:#28c840;}
+
+/* Modal login */
+#authModal {position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:10;}
+#authModal .modal-content {background: rgba(30,30,30,0.95); padding:30px; border-radius:16px; width:360px; display:flex; flex-direction:column; align-items:center; text-align:center;}
+#authModal h2 {margin-bottom:24px;}
+#authModal input {margin-bottom:16px; padding:12px; border-radius:8px; border:none; outline:none; width:100%; background: rgba(255,255,255,0.1); color:white;}
+#authModal button {padding:12px; border-radius:8px; border:none; cursor:pointer; background: rgba(255,255,255,0.2); color:white; font-weight:600; transition:0.2s; width:100%; margin-bottom:12px;}
 #authModal button:hover {background: rgba(255,255,255,0.4);}
+#authModal .subtitle {font-size:14px; color: #aaa; margin-bottom:16px;}
 </style>
 </head>
 <body>
 
-<!-- Модальное окно регистрации -->
+<!-- Modal login -->
 <div id="authModal">
   <div class="modal-content">
     <h2>MaCord — Вход / Регистрация</h2>
+    <div class="subtitle">Введите email для входа</div>
     <input type="email" id="email" placeholder="Email">
-    <input type="password" id="password" placeholder="Пароль">
-    <input type="text" id="username" placeholder="Имя (для регистрации)">
-    <button id="signUpBtn">Зарегистрироваться</button>
-    <button id="signInBtn">Войти</button>
+    <button id="sendCodeBtn">Отправить код</button>
   </div>
 </div>
 
-<div class="app">
+<div class="app" style="display:none;">
   <div class="sidebar">
     <div class="server-icon">M</div>
     <div class="server-icon">+</div>
@@ -106,54 +102,64 @@ html, body {margin:0; padding:0; height:100%; font-family:'Inter', sans-serif; b
 <script src="config.js"></script>
 <script>
 const supabase = supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY);
+
+const authModal = document.getElementById('authModal');
+const emailInput = document.getElementById('email');
+const sendCodeBtn = document.getElementById('sendCodeBtn');
+const appEl = document.querySelector('.app');
+const messagesEl = document.getElementById('messages');
+const usersListEl = document.getElementById('usersList');
+const inputEl = document.getElementById('input');
+const sendBtn = document.getElementById('send');
+
 let currentUser = null;
 
-const authModal = document.getElementById("authModal");
-const emailInput = document.getElementById("email");
-const passwordInput = document.getElementById("password");
-const usernameInput = document.getElementById("username");
-const signUpBtn = document.getElementById("signUpBtn");
-const signInBtn = document.getElementById("signInBtn");
-const messagesEl = document.getElementById("messages");
-const inputEl = document.getElementById("input");
-const sendBtn = document.getElementById("send");
-const usersListEl = document.getElementById("usersList");
-
-// Регистрация
-async function signUp() {
-  const { data, error } = await supabase.auth.signUp({email: emailInput.value, password: passwordInput.value});
+// Отправка magic link
+sendCodeBtn.addEventListener('click', async () => {
+  const email = emailInput.value;
+  if(!email) return alert("Введите email!");
+  const { data, error } = await supabase.auth.signInWithOtp({ email });
   if(error) return alert(error.message);
-  await supabase.from("profiles").insert([{id: data.user.id, username: usernameInput.value}]);
-  alert("Регистрация в MaCord успешна! Войдите для продолжения.");
-}
+  alert("Ссылка для входа отправлена на ваш email!");
+});
 
-// Вход
-async function signIn() {
-  const { data, error } = await supabase.auth.signInWithPassword({email: emailInput.value, password: passwordInput.value});
-  if(error) return alert(error.message);
-  currentUser = data.user;
-  authModal.style.display = "none";
-  loadMessages();
-  loadUsers();
-  subscribeMessages();
+// Проверка входа и отображение интерфейса
+supabase.auth.onAuthStateChange((event, session) => {
+  if(session && session.user){
+    currentUser = session.user;
+    authModal.style.display = 'none';
+    appEl.style.display = 'grid';
+    loadUsers();
+    loadMessages();
+    subscribeMessages();
+  }
+});
+
+// Загрузка пользователей
+async function loadUsers(){
+  const { data } = await supabase.from('profiles').select('*');
+  usersListEl.innerHTML += data.map(u=>`<div class="user">${u.username}</div>`).join('');
 }
 
 // Загрузка сообщений
-async function loadMessages() {
-  const { data } = await supabase.from("messages").select("*").order("created_at",{ascending:true});
+async function loadMessages(){
+  const { data } = await supabase.from('messages').select('*').order('created_at',{ascending:true});
   messagesEl.innerHTML = data.map(m=>`<div class="message"><span class="author">${m.username}:</span> ${m.content}</div>`).join('');
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-// Отправка сообщения
-async function sendMessage() {
-  if(!inputEl.value.trim()) return;
-  await supabase.from("messages").insert([{user_id: currentUser.id, username: usernameInput.value || currentUser.email, content: inputEl.value.trim()}]);
-  inputEl.value = "";
-}
+// Отправка сообщений
+sendBtn.addEventListener('click', async ()=>{
+  if(!inputEl.value || !currentUser) return;
+  await supabase.from('messages').insert([{user_id: currentUser.id, username: currentUser.email, content: inputEl.value.trim()}]);
+  inputEl.value='';
+});
 
-// Realtime подписка сообщений
-function subscribeMessages() {
+// Enter для отправки
+inputEl.addEventListener('keydown', e=>{if(e.key==="Enter") sendBtn.click();});
+
+// Realtime подписка
+function subscribeMessages(){
   supabase.channel('messages')
     .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'}, payload=>{
       const m = payload.new;
@@ -161,17 +167,7 @@ function subscribeMessages() {
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }).subscribe();
 }
-
-// Загрузка пользователей
-async function loadUsers() {
-  const { data } = await supabase.from("profiles").select("*");
-  usersListEl.innerHTML += data.map(u=>`<div class="user">${u.username}</div>`).join('');
-}
-
-signUpBtn.addEventListener("click", signUp);
-signInBtn.addEventListener("click", signIn);
-sendBtn.addEventListener("click", sendMessage);
-inputEl.addEventListener("keydown", e=>{if(e.key==="Enter") sendMessage();});
 </script>
+
 </body>
 </html>
