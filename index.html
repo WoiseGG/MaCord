@@ -4,25 +4,27 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MaCord</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/supabase.min.js"></script>
 
 <style>
 html, body {margin:0; padding:0; height:100%; font-family:'Inter', sans-serif; background:#1e1e1e; color:#fff;}
+.app {display:grid; grid-template-columns:80px 220px 1fr 220px; height:100vh;}
 
-/* App layout */
-.app {display:grid; grid-template-columns:80px 220px 220px 1fr; height:100vh;}
-
-/* Sidebar / Servers */
-.sidebar {display:flex; flex-direction:column; align-items:center; padding:16px; backdrop-filter:blur(20px); background: rgba(255,255,255,0.05); border-right:1px solid rgba(255,255,255,0.1);}
+/* Sidebar Servers */
+.sidebar {display:flex; flex-direction:column; align-items:center; padding:16px; backdrop-filter:blur(20px); background: rgba(255,255,255,0.05);}
 .server-icon {width:50px;height:50px;margin:8px 0;border-radius:16px; background: rgba(255,255,255,0.1); display:flex;align-items:center;justify-content:center; cursor:pointer; transition:0.2s;}
 .server-icon:hover {background: rgba(255,255,255,0.25); transform: scale(1.05);}
 
-/* Channels & Users */
-.channels, .users {padding:12px; display:flex; flex-direction:column; overflow-y:auto; backdrop-filter:blur(20px); background: rgba(255,255,255,0.05); border-right:1px solid rgba(255,255,255,0.1);}
-.channel, .user {padding:8px 12px; border-radius:8px; margin-bottom:4px; cursor:pointer; transition:0.2s;}
-.channel.active, .channel:hover, .user:hover {background: rgba(255,255,255,0.15);}
+/* Channels */
+.channels {padding:12px; display:flex; flex-direction:column; overflow-y:auto; backdrop-filter:blur(20px); background: rgba(255,255,255,0.05);}
+.channel {padding:8px 12px; border-radius:8px; margin-bottom:4px; cursor:pointer; transition:0.2s;}
+.channel.active, .channel:hover {background: rgba(255,255,255,0.15);}
+
+/* Users */
+.users {padding:12px; display:flex; flex-direction:column; overflow-y:auto; backdrop-filter:blur(20px); background: rgba(255,255,255,0.05);}
+.user {padding:8px 12px; border-radius:8px; margin-bottom:4px; cursor:pointer; transition:0.2s;}
+.user:hover {background: rgba(255,255,255,0.15);}
 
 /* Chat */
 .chat {display:flex; flex-direction:column; backdrop-filter:blur(20px); background: rgba(255,255,255,0.05);}
@@ -41,61 +43,82 @@ html, body {margin:0; padding:0; height:100%; font-family:'Inter', sans-serif; b
 .control.yellow {background:#ffbd2e;}
 .control.green {background:#28c840;}
 
-/* Modal login */
+/* Settings modal */
+#settingsModal {position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:none;align-items:center;justify-content:center;z-index:10;}
+#settingsModal .modal-content {background: rgba(30,30,30,0.95); padding:30px; border-radius:16px; width:360px; display:flex; flex-direction:column; align-items:center; text-align:center;}
+#settingsModal h2 {margin-bottom:24px;}
+#settingsModal label {margin-top:12px; display:flex; justify-content:space-between; width:100%;}
+#settingsModal input[type=range] {width:60%;}
+#settingsModal button {margin-top:16px; padding:12px; border-radius:8px; border:none; cursor:pointer; background: rgba(255,255,255,0.2); color:white; font-weight:600; transition:0.2s; width:100%;}
+#settingsModal button:hover {background: rgba(255,255,255,0.4);}
+
+/* Auth modal */
 #authModal {position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.85);display:flex;align-items:center;justify-content:center;z-index:10;}
 #authModal .modal-content {background: rgba(30,30,30,0.95); padding:30px; border-radius:16px; width:360px; display:flex; flex-direction:column; align-items:center; text-align:center;}
 #authModal h2 {margin-bottom:24px;}
 #authModal input {margin-bottom:16px; padding:12px; border-radius:8px; border:none; outline:none; width:100%; background: rgba(255,255,255,0.1); color:white;}
 #authModal button {padding:12px; border-radius:8px; border:none; cursor:pointer; background: rgba(255,255,255,0.2); color:white; font-weight:600; transition:0.2s; width:100%; margin-bottom:12px;}
 #authModal button:hover {background: rgba(255,255,255,0.4);}
-#authModal .subtitle {font-size:14px; color: #aaa; margin-bottom:16px;}
 </style>
 </head>
 <body>
 
-<!-- Modal login -->
+<!-- Auth Modal -->
 <div id="authModal">
   <div class="modal-content">
     <h2>MaCord — Вход / Регистрация</h2>
-    <div class="subtitle">Введите email для входа</div>
     <input type="email" id="email" placeholder="Email">
-    <button id="sendCodeBtn">Отправить код</button>
+    <button id="sendCodeBtn">Отправить ссылку</button>
+  </div>
+</div>
+
+<!-- Settings Modal -->
+<div id="settingsModal">
+  <div class="modal-content">
+    <h2>Настройки MaCord</h2>
+    <label>Громкость: <input type="range" id="volume" min="0" max="100" value="50"></label>
+    <label>Тема: 
+      <select id="theme">
+        <option value="dark">Тёмная</option>
+        <option value="light">Светлая</option>
+      </select>
+    </label>
+    <button id="closeSettings">Закрыть</button>
   </div>
 </div>
 
 <div class="app" style="display:none;">
-  <div class="sidebar">
-    <div class="server-icon">M</div>
-    <div class="server-icon">+</div>
+  <!-- Sidebar Servers -->
+  <div class="sidebar" id="serversList">
+    <div class="server-icon" id="addServer">+</div>
   </div>
 
-  <div class="channels">
+  <!-- Channels -->
+  <div class="channels" id="channelsList">
     <div class="window-controls">
       <span class="control red"></span>
       <span class="control yellow"></span>
       <span class="control green"></span>
     </div>
-    <div style="font-weight:bold; font-size:18px; margin-bottom:12px;">MaCord</div>
-    <div class="channel active"># общий</div>
-    <div class="channel"># музыка</div>
-    <div class="channel"># мемы</div>
   </div>
 
-  <div class="users" id="usersList">
-    <div class="window-controls">
-      <span class="control red"></span>
-      <span class="control yellow"></span>
-      <span class="control green"></span>
-    </div>
-    <div style="font-weight:bold; font-size:16px; margin-bottom:12px;">Пользователи</div>
-  </div>
-
+  <!-- Chat -->
   <div class="chat">
     <div class="messages" id="messages"></div>
     <div class="composer">
       <input type="text" id="input" placeholder="Написать сообщение...">
       <button id="send">Отправить</button>
     </div>
+  </div>
+
+  <!-- Users -->
+  <div class="users" id="usersList">
+    <div class="window-controls">
+      <span class="control red"></span>
+      <span class="control yellow"></span>
+      <span class="control green"></span>
+    </div>
+    <button id="openSettings">⚙️ Настройки</button>
   </div>
 </div>
 
@@ -108,65 +131,126 @@ const emailInput = document.getElementById('email');
 const sendCodeBtn = document.getElementById('sendCodeBtn');
 const appEl = document.querySelector('.app');
 const messagesEl = document.getElementById('messages');
-const usersListEl = document.getElementById('usersList');
 const inputEl = document.getElementById('input');
 const sendBtn = document.getElementById('send');
+const serversList = document.getElementById('serversList');
+const channelsList = document.getElementById('channelsList');
+const usersListEl = document.getElementById('usersList');
+const settingsModal = document.getElementById('settingsModal');
+const openSettingsBtn = document.getElementById('openSettings');
+const closeSettingsBtn = document.getElementById('closeSettings');
 
 let currentUser = null;
+let currentChannelId = null;
 
-// Отправка magic link
+// --- Auth ---
 sendCodeBtn.addEventListener('click', async () => {
   const email = emailInput.value;
   if(!email) return alert("Введите email!");
   const { data, error } = await supabase.auth.signInWithOtp({ email });
   if(error) return alert(error.message);
-  alert("Ссылка для входа отправлена на ваш email!");
+  alert("Ссылка для входа отправлена на вашу почту!");
 });
 
-// Проверка входа и отображение интерфейса
 supabase.auth.onAuthStateChange((event, session) => {
   if(session && session.user){
     currentUser = session.user;
     authModal.style.display = 'none';
     appEl.style.display = 'grid';
-    loadUsers();
-    loadMessages();
-    subscribeMessages();
+    initApp();
   }
 });
 
-// Загрузка пользователей
-async function loadUsers(){
-  const { data } = await supabase.from('profiles').select('*');
-  usersListEl.innerHTML += data.map(u=>`<div class="user">${u.username}</div>`).join('');
+// --- Initialize App ---
+async function initApp(){
+  await loadServers();
+  await loadUsers();
 }
 
-// Загрузка сообщений
+// --- Load Servers ---
+async function loadServers(){
+  const { data: servers } = await supabase.from('servers').select('*');
+  serversList.innerHTML = '<div class="server-icon" id="addServer">+</div>';
+  servers.forEach(s => {
+    const div = document.createElement('div');
+    div.className = 'server-icon';
+    div.textContent = s.name[0].toUpperCase();
+    div.onclick = () => loadChannels(s.id);
+    serversList.appendChild(div);
+  });
+}
+
+// --- Load Channels ---
+async function loadChannels(serverId){
+  const { data: channels } = await supabase.from('channels').select('*').eq('server_id', serverId);
+  channelsList.innerHTML = '<div class="window-controls"><span class="control red"></span><span class="control yellow"></span><span class="control green"></span></div>';
+  channels.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'channel';
+    div.textContent = c.name;
+    div.onclick = () => selectChannel(c.id);
+    channelsList.appendChild(div);
+  });
+}
+
+// --- Select Channel ---
+async function selectChannel(channelId){
+  currentChannelId = channelId;
+  loadMessages();
+  subscribeMessages(channelId);
+}
+
+// --- Load Messages ---
 async function loadMessages(){
-  const { data } = await supabase.from('messages').select('*').order('created_at',{ascending:true});
+  if(!currentChannelId) return;
+  const { data } = await supabase.from('messages').select('*').eq('channel_id', currentChannelId).order('created_at',{ascending:true});
   messagesEl.innerHTML = data.map(m=>`<div class="message"><span class="author">${m.username}:</span> ${m.content}</div>`).join('');
   messagesEl.scrollTop = messagesEl.scrollHeight;
 }
 
-// Отправка сообщений
+// --- Send Message ---
 sendBtn.addEventListener('click', async ()=>{
-  if(!inputEl.value || !currentUser) return;
-  await supabase.from('messages').insert([{user_id: currentUser.id, username: currentUser.email, content: inputEl.value.trim()}]);
+  if(!inputEl.value || !currentUser || !currentChannelId) return;
+  await supabase.from('messages').insert([{channel_id: currentChannelId, user_id: currentUser.id, username: currentUser.email, content: inputEl.value.trim()}]);
   inputEl.value='';
 });
 
-// Enter для отправки
+// Enter key
 inputEl.addEventListener('keydown', e=>{if(e.key==="Enter") sendBtn.click();});
 
-// Realtime подписка
-function subscribeMessages(){
-  supabase.channel('messages')
-    .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages'}, payload=>{
+// --- Realtime messages ---
+let subscription = null;
+function subscribeMessages(channelId){
+  if(subscription) supabase.removeChannel(subscription);
+  subscription = supabase.channel('messages_'+channelId)
+    .on('postgres_changes',{event:'INSERT',schema:'public',table:'messages', filter:`channel_id=eq.${channelId}`}, payload=>{
       const m = payload.new;
       messagesEl.innerHTML += `<div class="message"><span class="author">${m.username}:</span> ${m.content}</div>`;
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }).subscribe();
 }
+
+// --- Load Users ---
+async function loadUsers(){
+  const { data } = await supabase.from('profiles').select('*');
+  usersListEl.innerHTML = '<div class="window-controls"><span class="control red"></span><span class="control yellow"></span><span class="control green"></span></div>';
+  const settingsBtn = document.createElement('button');
+  settingsBtn.textContent = "⚙️ Настройки";
+  settingsBtn.onclick = ()=>settingsModal.style.display='flex';
+  usersListEl.appendChild(settingsBtn);
+
+  data.forEach(u=>{
+    const div = document.createElement('div');
+    div.className = 'user';
+    div.textContent = u.username;
+    div.onclick = ()=>alert('Открыть личный чат с ' + u.username);
+    usersListEl.appendChild(div);
+  });
+}
+
+// --- Settings ---
+openSettingsBtn.onclick = ()=>settingsModal.style.display='flex';
+closeSettingsBtn.onclick = ()=>settingsModal.style.display='none';
 </script>
 
 </body>
